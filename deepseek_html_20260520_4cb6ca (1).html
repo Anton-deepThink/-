@@ -1,0 +1,700 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Крестики-Нолики | Битва с ботом-читером</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            user-select: none;
+        }
+
+        body {
+            min-height: 100vh;
+            background: linear-gradient(135deg, #0a0a0a 0%, #1a1a1a 50%, #0a0a0a 100%);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-family: 'Segoe UI', 'Arial', 'Microsoft YaHei', sans-serif;
+            padding: 20px;
+            position: relative;
+        }
+
+        /* Анимированный фон с частицами */
+        body::before {
+            content: '';
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-image: 
+                radial-gradient(circle at 20% 30%, rgba(255,255,255,0.03) 1px, transparent 1px),
+                radial-gradient(circle at 80% 70%, rgba(255,255,255,0.02) 1px, transparent 1px);
+            background-size: 50px 50px, 80px 80px;
+            pointer-events: none;
+            animation: float 20s linear infinite;
+        }
+
+        @keyframes float {
+            0% {
+                background-position: 0 0, 0 0;
+            }
+            100% {
+                background-position: 100px 100px, -80px -80px;
+            }
+        }
+
+        /* Главный контейнер */
+        .game-container {
+            background: rgba(10, 10, 10, 0.8);
+            backdrop-filter: blur(10px);
+            border-radius: 40px;
+            padding: 30px;
+            box-shadow: 
+                0 20px 40px rgba(0,0,0,0.5),
+                0 0 0 1px rgba(255,255,255,0.1),
+                inset 0 1px 0 rgba(255,255,255,0.05);
+            max-width: 600px;
+            width: 100%;
+            transition: transform 0.3s ease;
+        }
+
+        .game-container:hover {
+            transform: translateY(-5px);
+        }
+
+        /* Заголовок */
+        .game-header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+
+        .game-title {
+            font-size: 2.5rem;
+            font-weight: 800;
+            letter-spacing: 4px;
+            background: linear-gradient(135deg, #fff, #888);
+            -webkit-background-clip: text;
+            background-clip: text;
+            color: transparent;
+            text-shadow: 0 2px 10px rgba(0,0,0,0.3);
+            margin-bottom: 10px;
+        }
+
+        .game-subtitle {
+            color: #aaa;
+            font-size: 0.85rem;
+            border-top: 1px solid rgba(255,255,255,0.1);
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+            display: inline-block;
+            padding: 8px 20px;
+            backdrop-filter: blur(5px);
+            letter-spacing: 1px;
+        }
+
+        /* Статус игры */
+        .status-card {
+            background: rgba(0, 0, 0, 0.6);
+            border-radius: 20px;
+            padding: 15px;
+            margin-bottom: 30px;
+            text-align: center;
+            border: 1px solid rgba(255,255,255,0.15);
+            transition: all 0.3s;
+        }
+
+        .status-text {
+            font-size: 1.3rem;
+            font-weight: 600;
+            color: #fff;
+            letter-spacing: 1px;
+        }
+
+        .status-badge {
+            display: inline-block;
+            background: rgba(255,255,255,0.1);
+            padding: 5px 15px;
+            border-radius: 30px;
+            font-size: 0.8rem;
+            margin-top: 8px;
+            color: #ccc;
+        }
+
+        /* Игровое поле */
+        .board {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 12px;
+            background: rgba(0,0,0,0.4);
+            padding: 20px;
+            border-radius: 30px;
+            margin-bottom: 30px;
+            aspect-ratio: 1 / 1;
+        }
+
+        .cell {
+            background: rgba(20, 20, 20, 0.9);
+            border: 2px solid rgba(255,255,255,0.2);
+            border-radius: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 4rem;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            aspect-ratio: 1 / 1;
+            color: #fff;
+            text-shadow: 0 2px 5px rgba(0,0,0,0.5);
+            backdrop-filter: blur(5px);
+        }
+
+        .cell:hover:not(.disabled) {
+            background: rgba(50, 50, 50, 0.9);
+            border-color: rgba(255,255,255,0.5);
+            transform: scale(0.98);
+        }
+
+        .cell.disabled {
+            cursor: not-allowed;
+            opacity: 0.8;
+        }
+
+        .cell.X {
+            color: #fff;
+            text-shadow: 0 0 10px rgba(255,255,255,0.5);
+        }
+
+        .cell.O {
+            color: #ccc;
+            text-shadow: 0 0 8px rgba(200,200,200,0.5);
+        }
+
+        /* Кнопки управления */
+        .control-panel {
+            display: flex;
+            gap: 15px;
+            justify-content: center;
+            margin-bottom: 25px;
+        }
+
+        .btn {
+            padding: 12px 28px;
+            font-size: 1rem;
+            font-weight: 600;
+            border: none;
+            border-radius: 40px;
+            cursor: pointer;
+            transition: all 0.2s;
+            font-family: inherit;
+            letter-spacing: 1px;
+        }
+
+        .btn-primary {
+            background: #fff;
+            color: #000;
+            box-shadow: 0 4px 15px rgba(255,255,255,0.2);
+        }
+
+        .btn-primary:hover {
+            background: #ddd;
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(255,255,255,0.3);
+        }
+
+        .btn-secondary {
+            background: rgba(255,255,255,0.1);
+            color: #fff;
+            border: 1px solid rgba(255,255,255,0.3);
+        }
+
+        .btn-secondary:hover {
+            background: rgba(255,255,255,0.2);
+            transform: translateY(-2px);
+        }
+
+        /* Правила игры */
+        .rules {
+            background: rgba(0,0,0,0.4);
+            border-radius: 20px;
+            padding: 15px 20px;
+            border: 1px solid rgba(255,255,255,0.1);
+            font-size: 0.8rem;
+            color: #aaa;
+            line-height: 1.5;
+        }
+
+        .rules-title {
+            font-weight: bold;
+            color: #fff;
+            margin-bottom: 8px;
+            font-size: 0.9rem;
+        }
+
+        .rules-list {
+            list-style: none;
+            padding-left: 0;
+        }
+
+        .rules-list li {
+            margin-bottom: 5px;
+            padding-left: 20px;
+            position: relative;
+        }
+
+        .rules-list li::before {
+            content: '•';
+            position: absolute;
+            left: 5px;
+            color: #fff;
+        }
+
+        .cheat-warning {
+            color: #f39c12;
+            font-weight: bold;
+            margin-top: 8px;
+            text-align: center;
+        }
+
+        /* Анимация для модального окна */
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.8);
+            backdrop-filter: blur(8px);
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+            animation: fadeIn 0.3s;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
+        .modal-content {
+            background: #1a1a1a;
+            border-radius: 30px;
+            padding: 30px;
+            max-width: 350px;
+            text-align: center;
+            border: 1px solid rgba(255,255,255,0.2);
+            box-shadow: 0 20px 40px rgba(0,0,0,0.5);
+        }
+
+        .modal-content h3 {
+            color: #fff;
+            margin-bottom: 15px;
+            font-size: 1.5rem;
+        }
+
+        .modal-content p {
+            color: #ccc;
+            margin-bottom: 20px;
+            line-height: 1.4;
+        }
+
+        .modal-btn {
+            background: #fff;
+            color: #000;
+            border: none;
+            padding: 10px 25px;
+            border-radius: 30px;
+            font-weight: bold;
+            cursor: pointer;
+            font-size: 1rem;
+        }
+
+        /* Адаптивность */
+        @media (max-width: 500px) {
+            .game-container {
+                padding: 20px;
+            }
+            .cell {
+                font-size: 2.5rem;
+            }
+            .game-title {
+                font-size: 1.8rem;
+            }
+            .btn {
+                padding: 8px 20px;
+            }
+        }
+    </style>
+</head>
+<body>
+
+<div class="game-container">
+    <div class="game-header">
+        <div class="game-title">TIC-TAC-TOE</div>
+        <div class="game-subtitle">VS CHEATER BOT</div>
+    </div>
+
+    <div class="status-card">
+        <div class="status-text" id="statusText">Ваш ход (X)</div>
+        <div class="status-badge" id="turnBadge">Ожидание хода</div>
+    </div>
+
+    <div class="board" id="board">
+        <!-- 9 клеток будут созданы через JS -->
+    </div>
+
+    <div class="control-panel">
+        <button class="btn btn-primary" id="newGameBtn">НОВАЯ ИГРА</button>
+        <button class="btn btn-secondary" id="resetBtn">СБРОС</button>
+    </div>
+
+    <div class="rules">
+        <div class="rules-title">⚔️ ПРАВИЛА БИТВЫ</div>
+        <ul class="rules-list">
+            <li>Вы играете за <strong style="color:#fff">X</strong>, бот за <strong style="color:#aaa">O</strong></li>
+            <li>Если у бота <strong>два символа в ряд</strong> — он читерит!</li>
+            <li>Бот ставит третий символ <strong>ЗА ПРЕДЕЛАМИ ПОЛЯ</strong> и мгновенно побеждает</li>
+            <li>Ваша задача: <strong>блокировать линии</strong> бота любой ценой</li>
+        </ul>
+        <div class="cheat-warning">⚠️ Бот опасен! Не дайте ему собрать два в ряд ⚠️</div>
+    </div>
+</div>
+
+<!-- Модальное окно для уведомлений -->
+<div id="modal" class="modal">
+    <div class="modal-content">
+        <h3 id="modalTitle">Игра окончена</h3>
+        <p id="modalMessage"></p>
+        <button class="modal-btn" id="modalCloseBtn">Закрыть</button>
+    </div>
+</div>
+
+<script>
+    // ---------- ИГРОВАЯ ЛОГИКА ----------
+    let board = [
+        [" ", " ", " "],
+        [" ", " ", " "],
+        [" ", " ", " "]
+    ];
+    let gameActive = true;
+    let currentTurn = "human"; // human или bot
+    const playerSymbol = "X";
+    const botSymbol = "O";
+    
+    let cells = []; // HTML элементы клеток
+
+    // DOM элементы
+    const statusTextEl = document.getElementById("statusText");
+    const turnBadgeEl = document.getElementById("turnBadge");
+    const boardContainer = document.getElementById("board");
+    const modal = document.getElementById("modal");
+    const modalTitle = document.getElementById("modalTitle");
+    const modalMessage = document.getElementById("modalMessage");
+    const modalCloseBtn = document.getElementById("modalCloseBtn");
+
+    // Создание игрового поля
+    function createBoard() {
+        boardContainer.innerHTML = "";
+        cells = [];
+        for (let i = 0; i < 3; i++) {
+            for (let j = 0; j < 3; j++) {
+                const cell = document.createElement("div");
+                cell.classList.add("cell");
+                cell.dataset.row = i;
+                cell.dataset.col = j;
+                cell.addEventListener("click", () => humanMove(i, j));
+                boardContainer.appendChild(cell);
+                cells.push(cell);
+            }
+        }
+        updateBoardUI();
+    }
+
+    // Обновление интерфейса поля
+    function updateBoardUI() {
+        for (let i = 0; i < 3; i++) {
+            for (let j = 0; j < 3; j++) {
+                const idx = i * 3 + j;
+                const cellValue = board[i][j];
+                cells[idx].textContent = cellValue === " " ? "" : cellValue;
+                if (cellValue === "X") {
+                    cells[idx].classList.add("X");
+                    cells[idx].classList.remove("O");
+                } else if (cellValue === "O") {
+                    cells[idx].classList.add("O");
+                    cells[idx].classList.remove("X");
+                } else {
+                    cells[idx].classList.remove("X", "O");
+                }
+            }
+        }
+    }
+
+    // Проверка победы на поле 3x3
+    function checkWinner(boardState, symbol) {
+        for (let i = 0; i < 3; i++) {
+            if (boardState[i][0] === symbol && boardState[i][1] === symbol && boardState[i][2] === symbol) return true;
+            if (boardState[0][i] === symbol && boardState[1][i] === symbol && boardState[2][i] === symbol) return true;
+        }
+        if (boardState[0][0] === symbol && boardState[1][1] === symbol && boardState[2][2] === symbol) return true;
+        if (boardState[0][2] === symbol && boardState[1][1] === symbol && boardState[2][0] === symbol) return true;
+        return false;
+    }
+
+    // Проверка ничьей
+    function isBoardFull(boardState) {
+        for (let i = 0; i < 3; i++) {
+            for (let j = 0; j < 3; j++) {
+                if (boardState[i][j] === " ") return false;
+            }
+        }
+        return true;
+    }
+
+    // Проверка, может ли бот считерить (2 символа в ряд)
+    function canBotCheat(boardState) {
+        const lines = [];
+        for (let i = 0; i < 3; i++) {
+            lines.push([[i, 0], [i, 1], [i, 2]]);
+            lines.push([[0, i], [1, i], [2, i]]);
+        }
+        lines.push([[0, 0], [1, 1], [2, 2]]);
+        lines.push([[0, 2], [1, 1], [2, 0]]);
+        
+        for (let line of lines) {
+            const values = line.map(([r, c]) => boardState[r][c]);
+            const botCount = values.filter(v => v === botSymbol).length;
+            const emptyCount = values.filter(v => v === " ").length;
+            if (botCount === 2 && emptyCount === 1) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    // Читерская победа бота
+    function botCheatWin() {
+        gameActive = false;
+        statusTextEl.textContent = "БОТ СЧИТЕРИЛ И ПОБЕДИЛ!";
+        turnBadgeEl.textContent = "Читерство за пределами поля";
+        showModal("Читерство!", "У бота было два символа в ряд! Он поставил третий за пределами поля и победил. Вы не смогли阻止 его...");
+        disableBoard(true);
+    }
+
+    // Обычный ход бота (с минимальной логикой)
+    function getBotMove() {
+        // 1. Может выиграть?
+        for (let i = 0; i < 3; i++) {
+            for (let j = 0; j < 3; j++) {
+                if (board[i][j] === " ") {
+                    board[i][j] = botSymbol;
+                    if (checkWinner(board, botSymbol)) {
+                        board[i][j] = " ";
+                        return [i, j];
+                    }
+                    board[i][j] = " ";
+                }
+            }
+        }
+        
+        // 2. Заблокировать игрока
+        for (let i = 0; i < 3; i++) {
+            for (let j = 0; j < 3; j++) {
+                if (board[i][j] === " ") {
+                    board[i][j] = playerSymbol;
+                    if (checkWinner(board, playerSymbol)) {
+                        board[i][j] = " ";
+                        return [i, j];
+                    }
+                    board[i][j] = " ";
+                }
+            }
+        }
+        
+        // 3. Случайный ход
+        const empty = [];
+        for (let i = 0; i < 3; i++) {
+            for (let j = 0; j < 3; j++) {
+                if (board[i][j] === " ") empty.push([i, j]);
+            }
+        }
+        if (empty.length > 0) {
+            const randomIndex = Math.floor(Math.random() * empty.length);
+            return empty[randomIndex];
+        }
+        return null;
+    }
+
+    // Ход бота (основной)
+    async function botMove() {
+        if (!gameActive || currentTurn !== "bot") return;
+        
+        statusTextEl.textContent = "Бот думает...";
+        turnBadgeEl.textContent = "Анализ поля";
+        
+        // Задержка для атмосферы
+        await new Promise(resolve => setTimeout(resolve, 600));
+        
+        if (!gameActive || currentTurn !== "bot") return;
+        
+        // Проверка на читерство
+        if (canBotCheat(board)) {
+            botCheatWin();
+            return;
+        }
+        
+        const move = getBotMove();
+        if (move) {
+            const [row, col] = move;
+            board[row][col] = botSymbol;
+            updateBoardUI();
+            
+            // Проверка победы после хода
+            if (checkWinner(board, botSymbol)) {
+                gameActive = false;
+                statusTextEl.textContent = "БОТ ВЫИГРАЛ ЧЕСТНО!";
+                turnBadgeEl.textContent = "Поражение";
+                showModal("Поражение", "Бот обыграл вас честно! В следующий раз повезёт.");
+                disableBoard(true);
+                return;
+            }
+            
+            // Проверка ничьей
+            if (isBoardFull(board)) {
+                gameActive = false;
+                statusTextEl.textContent = "НИЧЬЯ!";
+                turnBadgeEl.textContent = "Боевая ничья";
+                showModal("Ничья", "Поле полностью заполнено. Бот не смог считерить!");
+                disableBoard(true);
+                return;
+            }
+            
+            // Переход хода
+            currentTurn = "human";
+            statusTextEl.textContent = "Ваш ход (X)";
+            turnBadgeEl.textContent = "Ваша очередь";
+        } else if (isBoardFull(board)) {
+            gameActive = false;
+            statusTextEl.textContent = "НИЧЬЯ!";
+            turnBadgeEl.textContent = "Ничья";
+            showModal("Ничья", "Поле заполнено. Бой окончен.");
+            disableBoard(true);
+        }
+    }
+
+    // Ход человека
+    function humanMove(row, col) {
+        if (!gameActive || currentTurn !== "human") return;
+        if (board[row][col] !== " ") {
+            showModal("Ошибка", "Эта клетка уже занята!");
+            return;
+        }
+        
+        // Делаем ход
+        board[row][col] = playerSymbol;
+        updateBoardUI();
+        
+        // Проверка победы человека
+        if (checkWinner(board, playerSymbol)) {
+            gameActive = false;
+            statusTextEl.textContent = "ПОБЕДА! ВЫ ВЫИГРАЛИ!";
+            turnBadgeEl.textContent = "Триумф";
+            showModal("Победа!", "Поздравляем! Вы обыграли бота-читера честно!");
+            disableBoard(true);
+            return;
+        }
+        
+        // Проверка ничьей
+        if (isBoardFull(board)) {
+            gameActive = false;
+            statusTextEl.textContent = "НИЧЬЯ!";
+            turnBadgeEl.textContent = "Ничья";
+            showModal("Ничья", "Поле заполнено. Силы равны.");
+            disableBoard(true);
+            return;
+        }
+        
+        // Передаём ход боту
+        currentTurn = "bot";
+        statusTextEl.textContent = "Ход бота...";
+        turnBadgeEl.textContent = "Бот анализирует";
+        botMove();
+    }
+
+    // Блокировка/разблокировка поля
+    function disableBoard(disabled) {
+        cells.forEach(cell => {
+            if (disabled) {
+                cell.classList.add("disabled");
+            } else {
+                cell.classList.remove("disabled");
+            }
+        });
+    }
+
+    // Показать модальное окно
+    function showModal(title, message) {
+        modalTitle.textContent = title;
+        modalMessage.textContent = message;
+        modal.style.display = "flex";
+    }
+    
+    // Сброс игры (без перезагрузки страницы)
+    function resetGame() {
+        board = [
+            [" ", " ", " "],
+            [" ", " ", " "],
+            [" ", " ", " "]
+        ];
+        gameActive = true;
+        currentTurn = "human";
+        updateBoardUI();
+        disableBoard(false);
+        statusTextEl.textContent = "Ваш ход (X)";
+        turnBadgeEl.textContent = "Ваша очередь";
+        modal.style.display = "none";
+    }
+    
+    // Новая игра (полный сброс)
+    function newGame() {
+        resetGame();
+        // Если вдруг бот должен ходить первым (нет, человек первый)
+    }
+
+    // Закрытие модалки
+    modalCloseBtn.onclick = () => {
+        modal.style.display = "none";
+    };
+    
+    window.onclick = (event) => {
+        if (event.target === modal) {
+            modal.style.display = "none";
+        }
+    };
+
+    // Инициализация
+    function init() {
+        createBoard();
+        document.getElementById("newGameBtn").addEventListener("click", () => {
+            resetGame();
+        });
+        document.getElementById("resetBtn").addEventListener("click", () => {
+            resetGame();
+        });
+        // Человек ходит первым
+        currentTurn = "human";
+        gameActive = true;
+        statusTextEl.textContent = "Ваш ход (X)";
+        turnBadgeEl.textContent = "Ваша очередь";
+        disableBoard(false);
+    }
+    
+    init();
+</script>
+</body>
+</html>
